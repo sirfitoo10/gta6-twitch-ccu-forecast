@@ -6,9 +6,7 @@
 
 Empirical launch-curve forecaster for make.fun's "Forecast GTA VI's launch-day Twitch viewers hour by hour" bounty.
 
-The program anchors on hour 1's concurrent-viewer print, then for every later hour of the release day reads the contest's five quantiles off the pooled empirical distribution of `ln(viewers(h) / viewers(1))` across past big game launches (the case's `comparables`, restricted to each launch's release day). The empirical curve encodes what launch days really do — a dip in the small hours, then a long ramp as the Americas unlock and prime time arrives. When an hour's ratios are missing from the pool, it falls back to a random-walk spread in log space (`sigma = 0.15`).
-
-Cross-validated leave-one-out on the 37 comparable launches, the empirical model beats the house baseline's persistence walk (mean pinball loss 0.71 vs 0.93 over hours 2–24).
+The program anchors on hour 1's concurrent-viewer print, then for every later hour of the release day reads the contest's five quantiles off the pooled empirical distribution of `ln(viewers(h) / viewers(1))` across past big game launches (the case's `comparables`, restricted to each launch's release day). Each launch is weighted by `exp(-|ln(p1_launch / p1)| / 0.4)`, so launches whose opening hour resembles hour 1's print count most. The tails are pulled 40% toward the weighted median, and the forecast is shifted per hour by the model's own median bias measured on the pool's fully recorded release days (each probe left out of its own calibration pool). When an hour's ratios are missing from the pool, it falls back to a random-walk spread in log space (`sigma = 0.15`).
 
 ## Run it
 
