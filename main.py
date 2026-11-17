@@ -8,14 +8,13 @@
 # pulled 40% toward the median (a spread the pinball rule rewards: too-wide
 # bands pay at every hour).
 #
-# Self-calibration: the case's comparables include four fully-recorded probe
-# launches (their whole release day, hours 2-24). For each hour the model
-# measures its own median bias on those probes (leaving each probe out of its
-# own calibration pool) and shifts the forecast by that bias — the same trick
-# that lifted the leave-one-out practice loss from 0.32 (raw pooling) to ~0.15.
-# Hours with too few samples fall back to a random walk in log space.
+# Self-calibration: hours 2-24 of the pool members' own recorded release days
+# act as probes. For each hour the model measures its median bias on those
+# probes (leaving each probe out of its own calibration pool) and shifts the
+# forecast by that bias. Hours with too few samples fall back to a random
+# walk in log space.
 #
-# Deterministic: same input, same bytes out. Python 3.13, stdlib only, no network.
+# Deterministic: same input, same bytes out. Python 3.13, stdlib only.
 
 import json
 import math
@@ -69,8 +68,8 @@ def log_ratios(hm):
     return {h: math.log(hm[h]) - l1 for h in range(2, 25) if hm.get(h, 0) > 0}
 
 
-def hour_quantiles(p1, rows, h):
-    """Five quantiles of hour h's viewers given (name, curve) rows."""
+def weighted_pairs(p1, rows, h):
+    """(log-ratio, weight) pairs for hour h, weighted by p1 similarity."""
     lp1 = math.log(max(p1, 1))
     pairs = []
     for name, hm in rows:
@@ -78,6 +77,12 @@ def hour_quantiles(p1, rows, h):
         if lr and h in lr:
             w = math.exp(-abs(math.log(max(hm[1], 1)) - lp1) / TAU_K)
             pairs.append((lr[h], w))
+    return pairs
+
+
+def hour_quantiles(p1, rows, h):
+    """Five quantiles of hour h's viewers given (name, curve) rows."""
+    pairs = weighted_pairs(p1, rows, h)
     if len(pairs) < MIN_PAIRS:
         return [p1 * math.exp(z * SIGMA * math.sqrt(h - 1)) for z in Z]
     med = weighted_quant(pairs, 0.5)
@@ -90,13 +95,7 @@ def hour_quantiles(p1, rows, h):
 
 def median_ratio(p1, rows, h):
     """The model's median log-ratio for hour h over rows."""
-    lp1 = math.log(max(p1, 1))
-    pairs = []
-    for name, hm in rows:
-        lr = log_ratios(hm)
-        if lr and h in lr:
-            w = math.exp(-abs(math.log(max(hm[1], 1)) - lp1) / TAU_K)
-            pairs.append((lr[h], w))
+    pairs = weighted_pairs(p1, rows, h)
     if not pairs:
         return None
     return weighted_quant(pairs, 0.5)
