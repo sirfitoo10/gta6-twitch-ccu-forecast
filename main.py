@@ -53,6 +53,7 @@ def launch_day_curve(comp):
                 hh = int(frm[11:13]) + 1
             except ValueError:
                 continue
+            # hour 24 exists only in the last hour of a day: keep both keys
             hm[hh] = pt.get('viewers') or 0
     return hm
 
@@ -70,6 +71,13 @@ def pooled_log_ratios(comparables):
             vh = hm.get(h, 0)
             if vh > 0:
                 logs[h].append(math.log(vh) - l1)
+    # shrink the extreme tails of hours with few samples toward 0: with a
+    # small pool the outer quantiles are noise, and the pinball rule punishes
+    # a too-wide band at every hour.
+    for h, vals in logs.items():
+        if 0 < len(vals) < 12:
+            w = len(vals) / 12.0
+            logs[h] = [v * w for v in vals]
     return logs
 
 
